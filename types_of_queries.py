@@ -3,6 +3,7 @@ from glob import glob
 from whoosh.index import create_in, open_dir
 from whoosh.fields import Schema, TEXT, ID
 from whoosh.query import Term, Phrase, Prefix, Wildcard, And, FuzzyTerm, Or, Not
+from whoosh.analysis import RegexTokenizer, LowercaseFilter, StopFilter
 
 folder_path = "sample_data"
 file_paths = glob(os.path.join(folder_path, "*.txt"))
@@ -10,12 +11,12 @@ file_paths = glob(os.path.join(folder_path, "*.txt"))
 index_dir = "query_index"
 
 def create_schema():
+    analyzer = RegexTokenizer() | LowercaseFilter() | StopFilter()
     schema = Schema(
         title=ID(stored=True),
         path=ID(stored=True),
-        content=TEXT(stored=True),
+        content=TEXT(stored=True, analyzer=analyzer),
     )
-
     return schema
 
 
