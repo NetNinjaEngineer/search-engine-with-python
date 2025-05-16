@@ -100,6 +100,7 @@ class DocumentProcessor:
             self.lemmatizer = None
             
         self.create_index_dir()
+        
         self.schema = Schema(
             path=ID(stored=True),
             filetype=ID(stored=True),
@@ -381,7 +382,8 @@ class SearchEngineApp:
         self.root = root
         self.root.title("Multi-format Search Engine")
         self.root.geometry("900x700")  # Slightly larger window
-        
+
+
         self.processor = DocumentProcessor()
         self.setup_ui()
         self.task_queue = queue.Queue()
