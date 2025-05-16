@@ -388,7 +388,6 @@ class SearchEngineApp:
         self.setup_ui()
         self.task_queue = queue.Queue()
         self.is_working = False
-        self.current_results = []
         
         # Start checking for completed tasks
         self.check_queue()
@@ -442,10 +441,10 @@ class SearchEngineApp:
         
         # Results section
         results_frame = ttk.LabelFrame(main_frame, text="Search Results")
-        results_frame.pack(fill=tk.X, expand=False, pady=5)
+        results_frame.pack(fill=tk.X, expand=True, pady=5)
 
-        self.results_text = scrolledtext.ScrolledText(results_frame, wrap=tk.WORD, height=8)
-        self.results_text.pack(fill=tk.X, expand=False)
+        self.results_text = scrolledtext.ScrolledText(results_frame, wrap=tk.WORD)
+        self.results_text.pack(fill=tk.BOTH, expand=True)
 
         # Configure tags for result formatting
         self.results_text.tag_configure("title", font=("Arial", 10, "bold"))
@@ -457,91 +456,11 @@ class SearchEngineApp:
         self.status_var = tk.StringVar(value="Ready")
         ttk.Label(main_frame, textvariable=self.status_var, relief=tk.SUNKEN).pack(fill=tk.X, pady=5)
 
-
-        # Evaluation section
-        eval_frame = ttk.LabelFrame(main_frame, text="Evaluation", padding=10)
-        eval_frame.pack(fill=tk.X, pady=5)
-        
-        # Relevant results input
-        input_frame = ttk.Frame(eval_frame)
-        input_frame.pack(fill=tk.X, pady=5)
-        
-        ttk.Label(input_frame, text="Total Relevant Documents:").pack(side=tk.LEFT, padx=5)
-        self.total_relevant_var = tk.StringVar(value="0")
-        ttk.Entry(input_frame, textvariable=self.total_relevant_var, width=10).pack(side=tk.LEFT, padx=5)
-        
-        ttk.Label(input_frame, text="Relevant in Results:").pack(side=tk.LEFT, padx=5)
-        self.relevant_found_var = tk.StringVar(value="0")
-        ttk.Entry(input_frame, textvariable=self.relevant_found_var, width=10).pack(side=tk.LEFT, padx=5)
-        
-        ttk.Button(input_frame, text="Calculate Metrics", command=self.calculate_metrics).pack(side=tk.LEFT, padx=5)
-        
-        # Metrics display
-        metrics_frame = ttk.Frame(eval_frame)
-        metrics_frame.pack(fill=tk.X, pady=5)
-        
-        # Precision
-        precision_frame = ttk.Frame(metrics_frame)
-        precision_frame.pack(side=tk.LEFT, padx=20)
-        ttk.Label(precision_frame, text="Precision:").pack(side=tk.LEFT)
-        self.precision_var = tk.StringVar(value="N/A")
-        ttk.Label(precision_frame, textvariable=self.precision_var).pack(side=tk.LEFT, padx=5)
-        
-        # Recall
-        recall_frame = ttk.Frame(metrics_frame)
-        recall_frame.pack(side=tk.LEFT, padx=20)
-        ttk.Label(recall_frame, text="Recall:").pack(side=tk.LEFT)
-        self.recall_var = tk.StringVar(value="N/A")
-        ttk.Label(recall_frame, textvariable=self.recall_var).pack(side=tk.LEFT, padx=5)
-        
-        # F1-score
-        f1_frame = ttk.Frame(metrics_frame)
-        f1_frame.pack(side=tk.LEFT, padx=20)
-        ttk.Label(f1_frame, text="F1-score:").pack(side=tk.LEFT)
-        self.f1_var = tk.StringVar(value="N/A")
-        ttk.Label(f1_frame, textvariable=self.f1_var).pack(side=tk.LEFT, padx=5)
-
-        
     def update_status(self, message: str):
         """Update the status bar message."""
         self.status_var.set(message)
         self.root.update_idletasks()
 
-
-    def calculate_metrics(self):
-        """Calculate precision, recall, and F1-score."""
-        try:
-            # Get values from input fields
-            total_relevant = int(self.total_relevant_var.get())
-            relevant_found = int(self.relevant_found_var.get())
-            retrieved = len(self.current_results)
-            
-            if retrieved == 0:
-                self.update_status("No search results to evaluate.")
-                return
-                
-            if total_relevant < relevant_found:
-                self.update_status("Error: Relevant found cannot be greater than total relevant documents.")
-                return
-                
-            # Calculate metrics
-            precision = relevant_found / retrieved if retrieved > 0 else 0
-            recall = relevant_found / total_relevant if total_relevant > 0 else 0
-            f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
-            
-            # Update display
-            self.precision_var.set(f"{precision:.3f}")
-            self.recall_var.set(f"{recall:.3f}")
-            self.f1_var.set(f"{f1:.3f}")
-            
-            self.update_status("Metrics calculated successfully.")
-            
-        except ValueError:
-            self.update_status("Please enter valid numbers for relevant documents.")
-        except Exception as e:
-            self.update_status(f"Error calculating metrics: {str(e)}")
-
-        
     def update_results(self, results: List[Dict]):
         """Update the results area with search results."""
         self.results_text.delete(1.0, tk.END)
@@ -587,12 +506,6 @@ class SearchEngineApp:
             
         # Sort by score
         all_results.sort(key=lambda x: x["score"], reverse=True)
-        self.current_results = all_results
-        self.precision_var.set("N/A")
-        self.recall_var.set("N/A")
-        self.f1_var.set("N/A")
-        self.total_relevant_var.set("0")
-        self.relevant_found_var.set("0")
         
         # Update display
         self.update_results(all_results)
