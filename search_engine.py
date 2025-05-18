@@ -27,9 +27,10 @@ from nltk.stem import WordNetLemmatizer
 import whoosh
 from whoosh.index import create_in, open_dir
 from whoosh.fields import Schema, TEXT, ID, STORED, NUMERIC
-from whoosh.qparser import QueryParser, MultifieldParser
-from whoosh.qparser import OrGroup, AndGroup
-from whoosh.qparser.plugins import FuzzyTermPlugin, WildcardPlugin, PhrasePlugin
+from whoosh.qparser import MultifieldParser
+from whoosh.qparser import OrGroup
+from whoosh.qparser.plugins import FuzzyTermPlugin, WildcardPlugin, PhrasePlugin, PrefixPlugin
+from whoosh.qparser import OrGroup
 from whoosh.scoring import BM25F
 
 # Download required NLTK data
@@ -174,7 +175,6 @@ class DocumentProcessor:
 
     def index_document(self, path: str, filetype: str, location: str, content: str):
         """Index a document or document part."""
-        # Preprocess the content before indexing
         processed_content = self.preprocess_text(content)
         
         writer = self.ix.writer()
@@ -183,7 +183,7 @@ class DocumentProcessor:
             filetype=filetype,
             location=location,
             content=processed_content,
-            score=1.0  # Default score, will be updated during search
+            score=1.0
         )
         writer.commit()
         
@@ -313,8 +313,8 @@ class DocumentProcessor:
             soup = BeautifulSoup(response.content, 'html.parser')
             title = soup.title.text if soup.title else ""
             paragraphs = soup.find_all('p')
+            headers = soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
             
-            # Index title and paragraphs separately
             indexed_items = 0
             
             if title.strip():
@@ -326,6 +326,13 @@ class DocumentProcessor:
                 if text:
                     self.index_document(url, "web", f"Paragraph {i}", text)
                     indexed_items += 1
+
+
+            for i, header in enumerate(headers, 1):
+                text = header.get_text().strip()
+                if text:
+                    self.index_document(url, "web", f"Header {i}", text)
+                    indexed_items += 1
                     
             if indexed_items > 0:
                 return True, f"Indexed Web Page: {url} ({indexed_items} sections)"
@@ -335,22 +342,18 @@ class DocumentProcessor:
     
     def search(self, query_text: str, file_type_filter: Optional[str] = None) -> List[Dict]:
         """Search the index with the given query."""
-        # Preprocess the query the same way as documents
         processed_query = self.preprocess_text(query_text)
         
         with self.ix.searcher(weighting=BM25F()) as searcher:
-            # Configure query parser with all required plugins
             qp = MultifieldParser(["content"], schema=self.ix.schema, group=OrGroup)
             
-            # Add required query capabilities
-            qp.add_plugin(FuzzyTermPlugin())  # For fuzzy queries
-            qp.add_plugin(WildcardPlugin())   # For wildcard queries
-            qp.add_plugin(PhrasePlugin())     # For phrase queries
+            qp.add_plugin(FuzzyTermPlugin()) 
+            qp.add_plugin(WildcardPlugin()) 
+            qp.add_plugin(PhrasePlugin())     
+            qp.add_plugin(PrefixPlugin())   
             
-            # Parse the query
             content_query = qp.parse(processed_query)
             
-            # Create a combined query if there's a file type filter
             if file_type_filter:
                 from whoosh import query
                 type_query = query.Term("filetype", file_type_filter)
@@ -358,8 +361,7 @@ class DocumentProcessor:
             else:
                 final_query = content_query
                 
-            # Search with sorting by score
-            results = searcher.search(final_query, limit=10, sortedby="score")
+            results = searcher.search(final_query, limit=20, sortedby="score")
             
             return [{
                 "path": hit["path"],
@@ -490,7 +492,6 @@ class SearchEngineApp:
             self.update_status("Please enter a search query.")
             return
             
-        # Get selected file types
         selected_types = [ft for ft, var in self.file_filters.items() if var.get()]
         if not selected_types:
             self.update_status("Please select at least one file type.")
