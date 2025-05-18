@@ -8,7 +8,6 @@ import threading
 import queue
 import string
 
-# Document processing imports
 import PyPDF2
 import csv
 import json
@@ -16,14 +15,12 @@ import openpyxl
 import requests
 from bs4 import BeautifulSoup
 
-# NLP imports
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.tag import pos_tag
 from nltk.stem import WordNetLemmatizer
 
-# Search engine imports
 import whoosh
 from whoosh.index import create_in, open_dir
 from whoosh.fields import Schema, TEXT, ID, STORED, NUMERIC
@@ -32,8 +29,8 @@ from whoosh.qparser import OrGroup
 from whoosh.qparser.plugins import FuzzyTermPlugin, WildcardPlugin, PhrasePlugin, PrefixPlugin
 from whoosh.qparser import OrGroup
 from whoosh.scoring import BM25F
+from whoosh.analysis import RegexTokenizer, LowercaseFilter, StopFilter, StemFilter
 
-# Download required NLTK data
 try:
     nltk.data.find('tokenizers/punkt')
     nltk.data.find('corpora/stopwords')
@@ -83,8 +80,9 @@ class DocumentProcessor:
     def __init__(self, index_dir: str = "index"):
         """Initialize the document processor."""
         self.index_dir = index_dir
-        
-        # Initialize NLTK resources
+
+        custom_analyzer = RegexTokenizer() | LowercaseFilter() | StopFilter() | StemFilter()
+
         if not initialize_nltk():
             print("Warning: NLTK initialization incomplete. Some features may not work.")
             
@@ -106,7 +104,7 @@ class DocumentProcessor:
             path=ID(stored=True),
             filetype=ID(stored=True),
             location=ID(stored=True),
-            content=TEXT(stored=True),
+            content=TEXT(stored=True, analyzer=custom_analyzer),
             score=NUMERIC(stored=True, sortable=True)
         )
         self.create_or_open_index()
@@ -129,22 +127,18 @@ class DocumentProcessor:
             return ""
 
         try:
-            # Lowercasing
             text = text.lower()
 
-            # Tokenization
             try:
                 tokens = word_tokenize(text)
             except Exception as e:
                 print(f"Warning: Tokenization failed. Using basic split. Error: {str(e)}")
                 tokens = text.split()
 
-            # Remove punctuation and stopwords
             tokens = [token for token in tokens 
                      if token not in string.punctuation 
                      and (token not in self.stop_words if self.stop_words else True)]
 
-            # POS tagging and Lemmatization
             if self.lemmatizer:
                 try:
                     pos_tags = pos_tag(tokens)
@@ -642,4 +636,4 @@ def main():
         input("Press Enter to exit...")
 
 if __name__ == "__main__":
-    main() 
+    main()
